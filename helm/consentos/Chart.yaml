@@ -1,0 +1,20 @@
+apiVersion: v2
+name: consentos
+description: ConsentOS — Helm chart for Kubernetes deployment of the consent management platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://consentos.dev
+sources:
+  - https://github.com/consentos/consentos
+keywords:
+  - consent
+  - cookie
+  - gdpr
+  - privacy
+  - tcf
+  - gpp
+maintainers:
+  - name: ConsentOS
+    email: hello@consentos.dev
+    url: https://consentos.dev

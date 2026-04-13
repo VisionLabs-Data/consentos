@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-lint:
+    name: API Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
+
+  api-test:
+    name: API Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: consentos_test
+          POSTGRES_PASSWORD: consentos_test
+          POSTGRES_DB: consentos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://consentos_test:consentos_test@localhost:5432/consentos_test
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: ci-test-secret-key-not-for-production
+      ENVIRONMENT: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Run migrations
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://consentos_test:consentos_test@localhost:5432/consentos_test
+      - run: pytest --cov=src --cov-report=term-missing -v
+
+  scanner-lint:
+    name: Scanner Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install ruff
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
+
+  scanner-test:
+    name: Scanner Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/scanner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest --cov=src --cov-report=term-missing -v
+
+  banner-lint:
+    name: Banner Lint & Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/banner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/banner/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  banner-test:
+    name: Banner Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/banner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/banner/package-lock.json
+      - run: npm ci
+      - run: npx vitest run --reporter=verbose
+
+  banner-build:
+    name: Banner Build
+    runs-on: ubuntu-latest
+    needs: [banner-test, banner-lint]
+    defaults:
+      run:
+        working-directory: apps/banner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/banner/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Check bundle sizes
+        run: |
+          echo "=== Bundle sizes ==="
+          ls -lh dist/consent-loader.js
+          ls -lh dist/consent-bundle.js
+          LOADER_SIZE=$(stat -c%s dist/consent-loader.js)
+          if [ "$LOADER_SIZE" -gt 20480 ]; then
+            echo "::warning::consent-loader.js is ${LOADER_SIZE} bytes (>20KB) — consider optimising"
+          fi
+
+  admin-ui-lint:
+    name: Admin UI Typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/admin-ui/package-lock.json
+      - run: npm ci
+      - run: npx tsc -b
+
+  admin-ui-test:
+    name: Admin UI Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/admin-ui/package-lock.json
+      - run: npm ci
+      - run: npx vitest run --reporter=verbose
+
+  admin-ui-build:
+    name: Admin UI Build
+    runs-on: ubuntu-latest
+    needs: [admin-ui-test, admin-ui-lint]
+    defaults:
+      run:
+        working-directory: apps/admin-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/admin-ui/package-lock.json
+      - run: npm ci
+      - run: npx vite build

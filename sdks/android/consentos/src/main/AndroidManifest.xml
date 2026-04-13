@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Required for the SDK to fetch site configuration and post consent records. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- ConsentBannerActivity is declared here so host apps need not add it manually. -->
+        <activity
+            android:name=".ui.ConsentBannerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Translucent"
+            android:windowSoftInputMode="adjustResize" />
+    </application>
+
+</manifest>

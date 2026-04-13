@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "consentos.fullname" . }}-api
+  labels:
+    {{- include "consentos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "consentos.selectorLabels" (dict "Chart" .Chart "Release" .Release "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "consentos.selectorLabels" (dict "Chart" .Chart "Release" .Release "component" "api") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "consentos.secretName" . }}
+                  key: postgresql-password
+            - name: DATABASE_URL
+              value: {{ include "consentos.databaseUrl" . | quote }}
+            - name: REDIS_URL
+              value: {{ include "consentos.redisUrl" . | quote }}
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "consentos.secretName" . }}
+                  key: jwt-secret-key
+            - name: CDN_BASE_URL
+              value: {{ .Values.cdn.baseUrl | quote }}
+            {{- range $key, $value := .Values.api.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}

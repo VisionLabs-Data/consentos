@@ -1,0 +1,65 @@
+# Fly.io configuration for the ConsentOS API
+# See https://fly.io/docs/reference/configuration/ for reference.
+#
+# This app runs three process groups from the same Docker image:
+#   - app:    FastAPI web server (handles HTTP traffic)
+#   - worker: Celery worker (processes scan jobs and background tasks)
+#   - beat:   Celery beat scheduler (triggers periodic tasks)
+
+app = "consentos-api"
+primary_region = "lhr"  # London
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ENVIRONMENT = "production"
+  LOG_LEVEL = "INFO"
+  PORT = "8000"
+  RATE_LIMIT_ENABLED = "true"
+  RATE_LIMIT_PER_MINUTE = "120"
+
+# ── Migrations run once per deployment, before processes start ──────
+[deploy]
+  release_command = "python -m alembic upgrade head"
+
+# ── Process groups ──────────────────────────────────────────────────
+[processes]
+  app = "sh start.sh"
+  worker = "celery -A src.celery_app worker --loglevel=info --concurrency=2"
+  beat = "celery -A src.celery_app beat --loglevel=info"
+
+# ── HTTP service (only the 'app' process serves HTTP) ───────────────
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+# ── VM sizing per process ───────────────────────────────────────────
+# The app and beat processes are lightweight; the worker needs more
+# memory for processing scan results.
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["app"]
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["worker"]
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["beat"]

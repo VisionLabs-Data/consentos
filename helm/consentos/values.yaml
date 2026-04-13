@@ -1,0 +1,134 @@
+# Default values for ConsentOS.
+
+# ── API service ──────────────────────────────────────────────────────
+api:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/consentos/consentos-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  env:
+    LOG_LEVEL: INFO
+    RATE_LIMIT_ENABLED: "true"
+    RATE_LIMIT_PER_MINUTE: "120"
+  service:
+    type: ClusterIP
+    port: 8000
+
+# ── Scanner service ──────────────────────────────────────────────────
+scanner:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/consentos/consentos-scanner
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+
+# ── Admin UI ─────────────────────────────────────────────────────────
+adminUi:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/consentos/consentos-admin-ui
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 80
+
+# ── PostgreSQL ───────────────────────────────────────────────────────
+postgresql:
+  # Set to false to use an external database (e.g. RDS, Cloud SQL)
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  auth:
+    database: consentos
+    username: consentos
+    existingSecret: ""
+    secretKeys:
+      password: postgresql-password
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+
+  # External database URL — used when postgresql.enabled is false
+  externalUrl: ""
+
+# ── Redis ────────────────────────────────────────────────────────────
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+  persistence:
+    enabled: false
+
+  # External Redis URL — used when redis.enabled is false
+  externalUrl: ""
+
+# ── Ingress ──────────────────────────────────────────────────────────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: consentos.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: api
+        - path: /
+          pathType: Prefix
+          service: admin-ui
+  tls: []
+
+# ── Secrets ──────────────────────────────────────────────────────────
+secrets:
+  # Provide an existing secret name, or leave empty to create one
+  existingSecret: ""
+  # Values used when creating the secret (ignored if existingSecret is set)
+  jwtSecretKey: "CHANGE-ME-in-production"
+  postgresqlPassword: "consentos"
+
+# ── CDN ──────────────────────────────────────────────────────────────
+cdn:
+  baseUrl: "https://cdn.example.com"
+
+# ── Image pull secrets ───────────────────────────────────────────────
+imagePullSecrets: []

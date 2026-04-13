@@ -1,0 +1,5 @@
+# Cloudflare Pages redirects
+# https://developers.cloudflare.com/pages/configuration/redirects/
+
+# SPA fallback — must be LAST so static files (banner scripts, config JSON) are served directly
+/* /index.html 200

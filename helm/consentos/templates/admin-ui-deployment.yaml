@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "consentos.fullname" . }}-admin-ui
+  labels:
+    {{- include "consentos.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin-ui
+spec:
+  replicas: {{ .Values.adminUi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "consentos.selectorLabels" (dict "Chart" .Chart "Release" .Release "component" "admin-ui") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "consentos.selectorLabels" (dict "Chart" .Chart "Release" .Release "component" "admin-ui") | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: admin-ui
+          image: "{{ .Values.adminUi.image.repository }}:{{ .Values.adminUi.image.tag }}"
+          imagePullPolicy: {{ .Values.adminUi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.adminUi.resources | nindent 12 }}

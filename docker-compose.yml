@@ -1,0 +1,119 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://consentos:consentos@postgres:5432/consentos
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: consentos
+      POSTGRES_PASSWORD: consentos
+      POSTGRES_DB: consentos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U consentos"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  scanner:
+    build:
+      context: ./apps/scanner
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8001"
+      LOG_LEVEL: INFO
+      CRAWLER_HEADLESS: "true"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: >
+      celery -A src.celery_app worker
+      --loglevel=info
+      --concurrency=2
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://consentos:consentos@postgres:5432/consentos
+      REDIS_URL: redis://redis:6379/0
+      SCANNER_SERVICE_URL: http://scanner:8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      scanner:
+        condition: service_started
+    restart: unless-stopped
+
+  celery-beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: >
+      celery -A src.celery_app beat
+      --loglevel=info
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://consentos:consentos@postgres:5432/consentos
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  admin-ui:
+    build:
+      context: ./apps/admin-ui
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

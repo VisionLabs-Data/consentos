@@ -1,0 +1,207 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+import BannerBuilderTab from '../components/BannerBuilderTab';
+import type { BannerConfig } from '../types/api';
+
+const mockOnSave = vi.fn(() => Promise.resolve({}));
+
+function createQueryClient() {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
+function renderWithProviders(ui: React.ReactElement) {
+  const queryClient = createQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
+const BASE_CONFIG: { banner_config: BannerConfig | null } = {
+  banner_config: null,
+};
+
+const DEFAULT_PROPS = {
+  configQueryKey: ['sites', 'site-1', 'config'],
+  config: BASE_CONFIG,
+  onSave: mockOnSave,
+};
+
+describe('BannerBuilderTab', () => {
+  it('renders the builder with default state', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByTestId('banner-builder')).toBeInTheDocument();
+    expect(screen.getByText('Display mode')).toBeInTheDocument();
+    expect(screen.getByText('Theme')).toBeInTheDocument();
+    expect(screen.getByText('Layout')).toBeInTheDocument();
+    expect(screen.getByText('Live preview')).toBeInTheDocument();
+  });
+
+  it('renders all display mode buttons', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText('Bottom banner')).toBeInTheDocument();
+    expect(screen.getByText('Top banner')).toBeInTheDocument();
+    expect(screen.getByText('Overlay (modal)')).toBeInTheDocument();
+    expect(screen.getByText('Corner popup')).toBeInTheDocument();
+  });
+
+  it('renders the preview iframe', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    const preview = screen.getByTestId('banner-preview');
+    const iframe = within(preview).getByTitle('Banner preview');
+    expect(iframe).toBeInTheDocument();
+    expect(iframe.tagName).toBe('IFRAME');
+  });
+
+  it('renders viewport toggle buttons', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText('Desktop')).toBeInTheDocument();
+    expect(screen.getByText('Mobile')).toBeInTheDocument();
+  });
+
+  it('toggles mobile viewport width', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    const mobileBtn = screen.getByText('Mobile');
+    fireEvent.click(mobileBtn);
+
+    const iframe = screen.getByTitle('Banner preview');
+    expect(iframe).toHaveStyle({ width: '375px' });
+  });
+
+  it('renders layout toggle checkboxes', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText("Show 'Reject all' button")).toBeInTheDocument();
+    expect(screen.getByText("Show 'Manage preferences'")).toBeInTheDocument();
+    expect(screen.getByText('Show close button')).toBeInTheDocument();
+    expect(screen.getByText('Show cookie count')).toBeInTheDocument();
+    expect(screen.getByText('Show logo')).toBeInTheDocument();
+  });
+
+  it('shows logo URL field when logo toggle is enabled', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    // Logo is off by default — URL field should not be visible
+    expect(screen.queryByPlaceholderText('https://example.com/logo.svg')).not.toBeInTheDocument();
+
+    // Enable logo
+    const logoCheckbox = screen.getByText('Show logo').closest('label')!.querySelector('input')!;
+    fireEvent.click(logoCheckbox);
+
+    expect(screen.getByPlaceholderText('https://example.com/logo.svg')).toBeInTheDocument();
+  });
+
+  it('renders button style toggle', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText('Default button style')).toBeInTheDocument();
+    // Multiple "Filled"/"Outline" buttons exist (default + per-button editors)
+    expect(screen.getAllByText('Filled').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Outline').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders font selector', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText('Font')).toBeInTheDocument();
+    expect(screen.getByText('System default')).toBeInTheDocument();
+  });
+
+  it('renders save button', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.getByText('Save banner')).toBeInTheDocument();
+  });
+
+  it('loads existing banner config values', () => {
+    const configWithBanner = {
+      banner_config: {
+        displayMode: 'overlay' as const,
+        primaryColour: '#ff0000',
+        backgroundColour: '#000000',
+        textColour: '#ffffff',
+        buttonStyle: 'outline' as const,
+        fontFamily: 'Georgia, serif',
+        borderRadius: 12,
+        showRejectAll: false,
+        showManagePreferences: true,
+        showCloseButton: true,
+        showLogo: true,
+        logoUrl: 'https://example.com/logo.png',
+        showCookieCount: true,
+      },
+    };
+
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} config={configWithBanner} />,
+    );
+
+    // Check that the close button toggle is checked
+    const closeLabel = screen.getByText('Show close button').closest('label')!;
+    const closeCheckbox = closeLabel.querySelector('input') as HTMLInputElement;
+    expect(closeCheckbox.checked).toBe(true);
+
+    // Logo URL field should be visible since showLogo is true
+    expect(screen.getByPlaceholderText('https://example.com/logo.svg')).toBeInTheDocument();
+  });
+
+  it('calls save mutation when save button is clicked', async () => {
+    mockOnSave.mockClear();
+
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    const saveBtn = screen.getByText('Save banner');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(expect.objectContaining({
+        banner_config: expect.objectContaining({
+          primaryColour: '#2563eb',
+          backgroundColour: '#ffffff',
+          textColour: '#1a1a2e',
+          displayMode: 'bottom_banner',
+        }),
+      }));
+    });
+  });
+
+  it('changes display mode when mode button is clicked', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    const overlayBtn = screen.getByText('Overlay (modal)');
+    fireEvent.click(overlayBtn);
+
+    // Overlay button should now be active (bg-primary)
+    expect(overlayBtn.className).toContain('bg-primary');
+  });
+});

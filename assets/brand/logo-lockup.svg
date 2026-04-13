@@ -1,0 +1,7 @@
+<svg width="220" height="48" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="48" height="48" rx="11" fill="#1B3C7C"/>
+  <path d="M 33.9 14.1 A 13.5 13.5 0 1 0 33.9 33.9" stroke="white" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <circle cx="33.9" cy="33.9" r="4" fill="#4D8AFF"/>
+  <text x="62" y="32" font-family="Sora, system-ui, sans-serif" font-size="24" font-weight="600" fill="#1B3C7C" letter-spacing="-0.24">Consent</text>
+  <text x="159" y="32" font-family="Sora, system-ui, sans-serif" font-size="24" font-weight="600" fill="#2C6AE4" letter-spacing="-0.24">OS</text>
+</svg>

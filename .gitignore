@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+.mypy_cache/
+
+# Node
+node_modules/
+.turbo/
+
+# Banner build artefacts copied into admin-ui during Pages build
+apps/admin-ui/public/consent-*.js
+apps/admin-ui/public/consent-*.js.map
+
+# OS
+.DS_Store
+Thumbs.db
+**/*.vault.yml
+
+# Ansible secrets
+infra/ansible/.vault_pass
+
+# Claude Code workspace
+.claude/
+
+# CodeGraph cache
+.codegraph/
