@@ -11,6 +11,8 @@ RUN npm run build
 
 # ── Stage 2: build the admin UI ─────────────────────────────────────
 FROM node:20-slim AS admin-builder
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 WORKDIR /build/admin
 COPY apps/admin-ui/package.json apps/admin-ui/package-lock.json ./
 RUN npm ci
